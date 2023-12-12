@@ -995,57 +995,68 @@ cmd({
 
 //--------------------------------------------------------------------------------
 cmd({
-    pattern: "broadcast",
-    alias: ["bc"],
-    desc: "Bot makes a broadcast in all groups",
-    fromMe: true,
-    category: "group",
-    filename: __filename,
-    usage: "<text for broadcast>",
-}, async (message, match) => {
-    if (!isCreator) return message.reply(tlang().owner);
-    let getGroups = await message.groupFetchAllParticipating();
-    let groups = Object.entries(getGroups).map((entry) => entry[1]);
-    let anu = groups.map((v) => v.id);
-    message.reply(`Sending Broadcast to ${anu.length} Group Chat(s). Estimated Time: ${anu.length * 1.5} seconds.`);
-    for (let i of anu) {
-        await sleep(1500);
-        let txt = `*--❗ ${tlang().title} Broadcast ❗--*\n\n👾 Author: ${message.pushName}\n\n${match[1]}`;
-        let buttonMessage = {
-            image: log0,
-            caption: txt,
-            footer: message.pushName,
-            headerType: 1,
-            contextInfo: {
-                forwardingScore: 999,
-                isForwarded: false,
-                externalAdReply: {
-                    title: 'Broadcast by ' + message.pushName,
-                    body: tlang().title,
-                    thumbnail: log0,
-                    mediaUrl: '',
-                    mediaType: 2,
-                    sourceUrl: gurl,
-                    showAdAttribution: true,
-                },
-            },
-        };
-        await message.sendMessage(i, buttonMessage, {
-            quoted: message,
-        });
+  pattern: "broadcast",
+  alias: ["bc"],
+  desc: "Sends a broadcast message to all groups",
+  fromMe: true,
+  category: "group",
+  filename: __filename,
+  usage: "<text for broadcast>",
+}, async (Void, citel, text) => {
+  if (!isCreator) return citel.reply(tlang().owner);
+  const groups = await Void.groupFetchAllParticipating();
+  const activeGroups = groups.filter((group) => group.participants.length > 0); 
+  citel.reply(`Preparing to send broadcast to ${activeGroups.length} group(s).`);
+  for (const group of activeGroups) {
+    try {
+      await sleep(3000);
+      const messageContent = {
+        text: `*--❗ ${tlang().title} Broadcast ❗--*\n\n Author: ${citel.pushName}\n\n${text}`,
+      };
+      await Void.sendMessage(group.id, messageContent, { quoted: citel });
+    } catch (error) {
+      console.error(error);
+      citel.reply(`Error sending broadcast to group: ${group.id}`);
     }
-    message.reply(`Successfully Sent Broadcast to ${anu.length} Group(s).`);
+  }
+  citel.reply(`Successfully broadcasted to ${activeGroups.length} group(s).`);
 });
-      cmd({
-          pattern: "leave",
-      }, async (message, chat) => {
-          if (message.groupMetadata.isGroup && message.groupMetadata.isAdmin(message.author)) {
-              await chat.sendStateTyping();
-              await chat.sendMessage("Goodbye, I'm leaving this group. 👋");
-              await chat.sleep(2000);
-              await chat.leave();
-          }
-      });
+//-------------------------------------------
+cmd({
+  pattern: "left",
+  desc: "Leaves the current group",
+  category: "group",
+}, async (Void, citel, text) => {
+  try {
+    const chatId = citel.chat;
+    await Void.groupLeave(chatId);
+    citel.reply("Successfully left the group🙂.");
+  } catch (error) {
+    console.error(error);
+    citel.reply("Failed to leave the group.🤦🏽‍♂️");
+  }
+});
+
+//--------------------------------------------------------------------------
+cmd({
+  pattern: "dlt",
+  alias: ["delete"],
+  desc: "Deletes your own message",
+  category: "misc",
+  use: "<reply to your message>",
+}, async (Void, citel, text) => {
+  if (!citel.quoted) return citel.reply("Please reply to the message you want to delete🙂.");
+  if (!citel.quoted.fromMe) return citel.reply("You can only delete your own messages🙄.");
+  const { chat, fromMe, id } = citel.quoted;
+  const key = {
+    remoteJid: chat,
+    fromMe,
+    id,
+  };
+
+  await Void.sendMessage(chat, { delete: key });
+});
+
 
 //---------------------------------------------------------------------------
 if(Config.WORKTYPE!=='private'){
